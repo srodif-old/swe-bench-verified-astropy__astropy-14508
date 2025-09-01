@@ -1299,6 +1299,24 @@ def _format_value(value):
 
 def _format_float(value):
     """Format a floating number to make sure it gets the decimal point."""
+    # First try the simple string representation, which is often more concise
+    str_repr = str(value)
+    
+    # Use str() representation if it's suitable for FITS format:
+    # - Must be 20 characters or less
+    # - Must contain decimal point or scientific notation (for FITS compatibility)
+    if (len(str_repr) <= 20 and 
+        ("." in str_repr or "E" in str_repr or "e" in str_repr)):
+        
+        # Also try the G format to see if it would be shorter
+        g_format = f"{value:.16G}"
+        
+        # Only use str() if it's actually shorter or equal length to G format
+        # This avoids cases where str() produces unnecessarily long representations
+        if len(str_repr) <= len(g_format):
+            return str_repr
+    
+    # Fall back to the original G format approach
     value_str = f"{value:.16G}"
     if "." not in value_str and "E" not in value_str:
         value_str += ".0"
