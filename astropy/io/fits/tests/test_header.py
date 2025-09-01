@@ -137,6 +137,48 @@ class TestHeaderFunctions(FitsTestCase):
         ):
             assert str(c) == _pad("FLOATNUM= -4.6737463674763E+32")
 
+    def test_float_format_precision_improvement(self):
+        """Test that _format_float uses compact representations when possible"""
+        from astropy.io.fits.card import _format_float
+        
+        # Test the main issue: 0.009125 should format compactly
+        result = _format_float(0.009125)
+        assert result == "0.009125", f"Expected '0.009125', got '{result}'"
+        assert len(result) <= 20, f"Result '{result}' is too long ({len(result)} chars)"
+        
+        # Test that it still handles edge cases properly
+        test_cases = [
+            (1.0, "1.0"),  # Simple case
+            (3.14159, "3.14159"),  # Regular decimal
+            (1e-10, "1e-10"),  # Scientific notation should work
+        ]
+        
+        for value, expected in test_cases:
+            result = _format_float(value)
+            assert result == expected or result == expected.replace('e', 'E'), \
+                f"For {value}, expected '{expected}' or scientific variant, got '{result}'"
+    
+    def test_hierarch_card_comment_preservation(self):
+        """Test that HIERARCH cards preserve comments with improved float formatting"""
+        # This is the exact scenario from the issue report
+        keyword = "ESO IFM CL RADIUS"
+        value = 0.009125
+        comment = "[m] radius arround actuator to avoid"
+        
+        # Create the card - should not produce truncation warning
+        card = fits.Card(f'HIERARCH {keyword}', value, comment)
+        
+        # The comment should be preserved (not truncated)
+        assert card.comment == comment, \
+            f"Comment was truncated: expected '{comment}', got '{card.comment}'"
+        
+        # The card string should contain the compact float representation
+        card_str = str(card)
+        assert "0.009125" in card_str, \
+            f"Card should contain compact float '0.009125', got: {card_str}"
+        assert "0.009124999999999999" not in card_str, \
+            f"Card should not contain long float representation, got: {card_str}"
+
     def test_complex_value_card(self):
         """Test Card constructor with complex value"""
 
